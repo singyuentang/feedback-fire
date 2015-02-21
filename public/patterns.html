@@ -5,9 +5,7 @@
 <script src= "https://ajax.googleapis.com/ajax/libs/angularjs/1.3.0/angular.min.js"></script>
     <script src="https://cdn.firebase.com/js/client/2.0.4/firebase.js"></script>
     <script src="https://cdn.firebase.com/libs/angularfire/0.8.0/angularfire.min.js"></script>
-<!-- Graphing libraries -->
- <script data-require="d3@*" data-semver="3.3.11" src="//cdnjs.cloudflare.com/ajax/libs/d3/3.3.11/d3.js"></script>
-  <script type="text/javascript" src="https://rawgit.com/chinmaymk/angular-charts/bower/dist/angular-charts.min.js"></script>
+
     
 <!-- Anagular-char data -->
  <link rel="stylesheet" href=
@@ -47,9 +45,12 @@
     <br>
   Counters: <br>
   <table>
+    <tr>
+        <th>Counter</th>
+        <th>Count</th>
+    </tr>
     <tr ng-repeat="(k,v) in counters">
         <td>{{k}}</td>
-        <td> </td>
         <td>{{v}}</td>
         <td>
         <button class="btn btn-success" ng-click="incrementCounter(k)">
@@ -179,9 +180,9 @@
 <hr>
         
         
-<div ng-init="intervalCounter={'name':'awesome', 'interval':3000,'target':5, 'timer':'awesome'}">
+<div ng-init="intervalCounter={'queue':'funQueue', 'interval':3000,'target':5, 'counter':'awesome'}">
     Process tasks in queue  
-    <input ng-model="intervalCounter.name" type="text">
+    <input ng-model="intervalCounter.queue" type="text">
     every 
     <input ng-model="intervalCounter.interval" type="text">
 
@@ -191,29 +192,20 @@
     is less than
     <input ng-model="intervalCounter.target" type="text">.
 
-    <button class="btn btn-success" ng-click="processTasksUntilCounter()">
-        <span class="glyphicon"></span> Start Processing
+    <button class="btn btn-success" ng-click="processTasksUntilCounter(intervalCounter.counter,intervalCounter.target,intervalCounter.queue,intervalCounter.interval)">
+        <span class="glyphicon"></span> Start Processing Tasks in Queue 
     </button><br>
 
 </div>
-        
-  Consume tasks from task queue X while timer Y has not expired. <br>
-    
+  <br>
+  Todo: <b>Process tasks in a queue from the server.</b> <br>
+  
 <hr>
-   
- Execute tasks from the server. <br>
- Put timers into a ServerTimers queue and delete them when removing them. <br>
-        
- Update graphs with button. <br>
- Update graphs with a local timer. <br>
-        
-
+           
 <button class="btn btn-success" ng-click="update_the_chart()">
         <span class="glyphicon"></span> Update Chart
 </button><br>
-        
-    
- <hr>        
+      
     <div class="panel panel-default">
       <div class="panel-heading">
         Chart
@@ -221,7 +213,6 @@
       <!-- 
       class="chart chart-line"
       class="chart chart-bar"
-      
       -->
       <div class="panel-body">
         <canvas id="line" class="chart chart-bar" data="data" labels="labels" legend="true" click="onClick" series="series"></canvas>
@@ -230,7 +221,7 @@
         
 </div> <!-- container -->
 <script>
-  var myApp = angular.module("myApp", ["firebase","angularCharts","chart.js"]);
+  var myApp = angular.module("myApp", ["firebase","chart.js"]);
   myApp.controller('userController', ['$scope', '$firebase',
     function($scope, $firebase) {
     $scope.newuser = {};
@@ -245,6 +236,7 @@
     $scope.server = $firebase(ref.child("server")).$asObject(); 
     $scope.queues = $firebase(ref.child("queues")).$asObject(); 
     
+    //Sometime it is easier to work with data as an array. 
     $scope.theCounters = $firebase(ref.child("counters")).$asArray();
         
         
@@ -391,13 +383,51 @@
         }
  
     };
-
-    // angular-charts code. 
+    
+    $scope.processTasksUntilCounter = function(counterKey,maxCount,queue,interval){
+        console.log("here");   
+        var intervalToStop = setInterval(function () {myProcessingTimer( counterKey,maxCount,queue,intervalToStop)}, interval);
         
-    $scope.myCounters = [10,20,30,40,50];
+        //Add to local object for tracking. 
+        var temp = {'counterKey':counterKey,'maxCount':maxCount,'interval':interval}
+        $scope.localIntervals[intervalToStop] = temp;
+    }
+    
+        //If the maxCount has been reached, stop the interval
+    function myProcessingTimer(counterName, maxCounter, queueName,intervalToStop) {
+
+        
+      if($scope.counters[counterName]<maxCounter){
+        console.log("Todo: Processing task in queue"+queueName+" while counter "+counterName);
+        //$scope.theQueue = $firebase(ref.child("queues").child(queueName)).$asArray();
+        
+        $scope.incrementCounter(counterName);
+        //Find task name of task 0 if any in the queue. 
+        if ( (queueName in $scope.queues) && Object.keys($scope.queues[queueName]).length >0){
+            console.log(Object.keys($scope.queues[queueName]));
+            $scope.processTask(queueName,Object.keys($scope.queues[queueName])[0]);
+            //Update the counter. 
+            
+        }else{
+            //If there are no more tasks.
+            //$scope.stopInterval(intervalToStop);
+        }
+      } 
+      else { 
+          //If counter has exceeded limit. 
+          $scope.stopInterval(intervalToStop);
+      }
+        
+    };
+      
+
+    // angular-charts starter data shown before first click. 
     $scope.labels = ["Click", "to", "Update","Counters", "!"];
-    $scope.series = ['Series A', 'Series B'];
-    $scope.data = [$scope.myCounters,[15,5,25,30,25]];
+    $scope.series = ['Counters', 'Queue Lengths'];
+    $scope.data = [ 
+                    [10,20,30,40,35],
+                    [15,5,25,30,25]
+                ];
         
     $scope.update_the_chart = function(){
         
